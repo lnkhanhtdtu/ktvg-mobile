@@ -1,6 +1,12 @@
 package com.example.tmp1;
 
 import androidx.appcompat.app.AppCompatActivity;
+
+import android.app.Activity;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
 import android.content.Context;
 import android.telephony.SmsManager;
@@ -105,21 +111,58 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void SendSmsContent(Customer customer) {
-        try
-        {
-            SmsManager smsManager=SmsManager.getDefault();
-            smsManager.sendTextMessage(customer.getPhoneNumber(),null, customer.getMessageContent(),null,null);
-            Toast.makeText(getApplicationContext(),"Gửi SMS tới [" + customer.getCustomerName() + "] thành công",Toast.LENGTH_LONG).show();
-            addLog(customer, true, "");
-            System.out.println("Gui thanh cong");
+        String SENT = "SMS_SENT";
+        String DELIVERED = "SMS_DELIVERED";
+
+        PendingIntent sentPI = PendingIntent.getBroadcast(this, 0, new Intent(SENT), PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent deliveredPI = PendingIntent.getBroadcast(this, 0, new Intent(DELIVERED), PendingIntent.FLAG_IMMUTABLE);
+
+        // Đăng ký các BroadcastReceiver để nhận kết quả
+        registerReceiver(new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                switch (getResultCode()) {
+                    case Activity.RESULT_OK:
+                        Toast.makeText(getBaseContext(), "Gửi SMS tới [" + customer.getCustomerName() + "] thành công", Toast.LENGTH_SHORT).show();
+                        addLog(customer, true, "");
+                        System.out.println("Gửi thành công");
+                        break;
+                    case SmsManager.RESULT_ERROR_GENERIC_FAILURE:
+                    case SmsManager.RESULT_ERROR_NO_SERVICE:
+                    case SmsManager.RESULT_ERROR_NULL_PDU:
+                    case SmsManager.RESULT_ERROR_RADIO_OFF:
+                        Toast.makeText(getBaseContext(), "Gửi SMS tới [" + customer.getCustomerName() + "] thất bại", Toast.LENGTH_SHORT).show();
+                        addLog(customer, false, "Lỗi khi gửi tin nhắn");
+                        System.out.println("Gửi thất bại");
+                        break;
+                }
+            }
+        }, new IntentFilter(SENT));
+
+        registerReceiver(new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                switch (getResultCode()) {
+                    case Activity.RESULT_OK:
+                        Toast.makeText(getBaseContext(), "SMS đã được nhận bởi [" + customer.getCustomerName() + "]", Toast.LENGTH_SHORT).show();
+                        break;
+                    case Activity.RESULT_CANCELED:
+                        Toast.makeText(getBaseContext(), "SMS không được nhận bởi [" + customer.getCustomerName() + "]", Toast.LENGTH_SHORT).show();
+                        break;
+                }
+            }
+        }, new IntentFilter(DELIVERED));
+
+        try {
+            SmsManager smsManager = SmsManager.getDefault();
+            smsManager.sendTextMessage(customer.getPhoneNumber(), null, customer.getMessageContent(), sentPI, deliveredPI);
+        } catch (Exception e) {
+            addLog(customer, false, e.getMessage());
+            System.out.println("Gửi thất bại");
+            Toast.makeText(getApplicationContext(), "Gửi SMS tới [" + customer.getCustomerName() + "] thất bại", Toast.LENGTH_LONG).show();
         }
-        catch (Exception e)
-        {
-            addLog(customer, true, e.getMessage());
-            System.out.println("Gui that bai");
-            Toast.makeText(getApplicationContext(),"Gửi SMS tới [" + customer.getCustomerName() + "] thất bại",Toast.LENGTH_LONG).show();
-        }
-    };
+    }
+
 
     AdapterView.OnItemClickListener myOnItemClickListener = new AdapterView.OnItemClickListener() {
         @Override
