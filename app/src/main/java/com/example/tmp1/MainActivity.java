@@ -4,6 +4,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.app.Activity;
 import android.app.PendingIntent;
+import android.app.ProgressDialog;
 import android.content.BroadcastReceiver;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -19,6 +20,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckedTextView;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -28,6 +30,7 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonArrayRequest;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
+import com.google.android.material.snackbar.Snackbar;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -53,11 +56,13 @@ public class MainActivity extends AppCompatActivity {
     Button selectAll;
     ArrayList<Customer> customerList = new ArrayList<>();
     MyArrayAdapter myArrayAdapter;
+    private ProgressBar progressBar;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        progressBar = findViewById(R.id.progressBar);
 
         try {
             loadLocates();
@@ -80,6 +85,9 @@ public class MainActivity extends AppCompatActivity {
 
                     SendSmsContent(customer);
                 }
+
+                myArrayAdapter.clearSelections(); // Xóa các mục đã chọn sau khi gửi tin nhắn
+                updateSendSMSItemCount(); // Cập nhật lại số lượng mục đã chọn
             }
         });
 
@@ -117,52 +125,76 @@ public class MainActivity extends AppCompatActivity {
         PendingIntent sentPI = PendingIntent.getBroadcast(this, 0, new Intent(SENT), PendingIntent.FLAG_IMMUTABLE);
         PendingIntent deliveredPI = PendingIntent.getBroadcast(this, 0, new Intent(DELIVERED), PendingIntent.FLAG_IMMUTABLE);
 
-        // Đăng ký các BroadcastReceiver để nhận kết quả
-        registerReceiver(new BroadcastReceiver() {
+        BroadcastReceiver sentReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                switch (getResultCode()) {
-                    case Activity.RESULT_OK:
-                        Toast.makeText(getBaseContext(), "Gửi SMS tới [" + customer.getCustomerName() + "] thành công", Toast.LENGTH_SHORT).show();
-                        addLog(customer, true, "");
-                        System.out.println("Gửi thành công");
-                        break;
-                    case SmsManager.RESULT_ERROR_GENERIC_FAILURE:
-                    case SmsManager.RESULT_ERROR_NO_SERVICE:
-                    case SmsManager.RESULT_ERROR_NULL_PDU:
-                    case SmsManager.RESULT_ERROR_RADIO_OFF:
-                        Toast.makeText(getBaseContext(), "Gửi SMS tới [" + customer.getCustomerName() + "] thất bại", Toast.LENGTH_SHORT).show();
-                        addLog(customer, false, "Lỗi khi gửi tin nhắn");
-                        System.out.println("Gửi thất bại");
-                        break;
+                try {
+                    switch (getResultCode()) {
+                        case Activity.RESULT_OK:
+                            Toast.makeText(getBaseContext(), "Gửi SMS tới [" + customer.getCustomerName() + "] thành công", Toast.LENGTH_SHORT).show();
+                            addLog(customer, true, "");
+                            break;
+                        case SmsManager.RESULT_ERROR_GENERIC_FAILURE:
+                            showError(customer, "Lỗi chung khi gửi tin nhắn.");
+                            break;
+                        case SmsManager.RESULT_ERROR_NO_SERVICE:
+                            showError(customer, "Không có dịch vụ.");
+                            break;
+                        case SmsManager.RESULT_ERROR_NULL_PDU:
+                            showError(customer, "PDU null.");
+                            break;
+                        case SmsManager.RESULT_ERROR_RADIO_OFF:
+                            showError(customer, "Radio tắt.");
+                            break;
+                        default:
+                            showError(customer, "Lỗi khác.");
+                            break;
+                    }
+                } catch (Exception e) {
+                    showError(customer, "Lỗi trong khi xử lý kết quả gửi: " + e.getMessage());
+                } finally {
+                    unregisterReceiver(this);
+                    loadLocates(); // Tải lại danh sách sau khi xử lý xong kết quả gửi tin nhắn
                 }
             }
-        }, new IntentFilter(SENT));
+        };
+        registerReceiver(sentReceiver, new IntentFilter(SENT));
 
-        registerReceiver(new BroadcastReceiver() {
+        BroadcastReceiver deliveredReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                switch (getResultCode()) {
-                    case Activity.RESULT_OK:
-                        Toast.makeText(getBaseContext(), "SMS đã được nhận bởi [" + customer.getCustomerName() + "]", Toast.LENGTH_SHORT).show();
-                        break;
-                    case Activity.RESULT_CANCELED:
-                        Toast.makeText(getBaseContext(), "SMS không được nhận bởi [" + customer.getCustomerName() + "]", Toast.LENGTH_SHORT).show();
-                        break;
+                try {
+                    switch (getResultCode()) {
+                        case Activity.RESULT_OK:
+                            Toast.makeText(getBaseContext(), "SMS đã được nhận bởi [" + customer.getCustomerName() + "]", Toast.LENGTH_SHORT).show();
+                            break;
+                        case Activity.RESULT_CANCELED:
+                            showError(customer, "SMS không được nhận.");
+                            break;
+                    }
+                } catch (Exception e) {
+                    showError(customer, "Lỗi trong khi xử lý kết quả nhận: " + e.getMessage());
+                } finally {
+                    unregisterReceiver(this);
                 }
             }
-        }, new IntentFilter(DELIVERED));
+        };
+        registerReceiver(deliveredReceiver, new IntentFilter(DELIVERED));
 
         try {
             SmsManager smsManager = SmsManager.getDefault();
             smsManager.sendTextMessage(customer.getPhoneNumber(), null, customer.getMessageContent(), sentPI, deliveredPI);
         } catch (Exception e) {
-            addLog(customer, false, e.getMessage());
-            System.out.println("Gửi thất bại");
-            Toast.makeText(getApplicationContext(), "Gửi SMS tới [" + customer.getCustomerName() + "] thất bại", Toast.LENGTH_LONG).show();
+            showError(customer, "Gửi SMS thất bại: " + e.getMessage());
         }
     }
 
+
+    private void showError(Customer customer, String message) {
+        addLog(customer, false, message);
+        System.out.println("Gửi thất bại");
+        Toast.makeText(getBaseContext(), "Gửi SMS tới [" + customer.getCustomerName() + "] thất bại", Toast.LENGTH_SHORT).show();
+    }
 
     AdapterView.OnItemClickListener myOnItemClickListener = new AdapterView.OnItemClickListener() {
         @Override
@@ -274,6 +306,14 @@ public class MainActivity extends AppCompatActivity {
             TextView lastTime;
         }
 
+        public void clearSelections() {
+            myChecked.clear();
+            for (int i = 0; i < getCount(); i++) {
+                myChecked.put(i, false);
+            }
+            notifyDataSetChanged();
+        }
+
         public void selectAll() {
             for (int i = 0; i < customerList.size(); i++) {
                 checkedItems.put(i, true);
@@ -324,17 +364,20 @@ public class MainActivity extends AppCompatActivity {
                             e.printStackTrace();
                             Toast.makeText(MainActivity.this, "Error parsing JSON: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                         }
+                        progressBar.setVisibility(View.GONE);
                     }
                 },
                 new Response.ErrorListener() {
                     @Override
                     public void onErrorResponse(VolleyError error) {
                         Toast.makeText(MainActivity.this, "Error loading customers: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                        progressBar.setVisibility(View.GONE);
                     }
                 });
 
         Volley.newRequestQueue(this).add(request);
     }
+
 
     private void addLog(Customer customer, Boolean isSuccess, String responseMessage) {
         String url = "https://ktvinagroup.com/api/LogSmsClients";
