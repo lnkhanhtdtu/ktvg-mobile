@@ -1,91 +1,113 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:padding="8dp">
-
-    <!--    <ImageView-->
-<!--        android:layout_width="50dp"-->
-<!--        android:layout_height="50dp"-->
-<!--        android:src="@mipmap/ic_launcher"-->
-<!--        android:layout_marginRight="8dp"/>-->
-
-    <CheckedTextView
-        android:id="@+id/text1"
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent"
-        android:checkMark="?android:attr/listChoiceIndicatorMultiple"
-        android:paddingLeft="8dp"
-        android:paddingRight="8dp"
-        android:textAlignment="center" />
+    android:layout_margin="16dp"
+    app:cardBackgroundColor="#F0F0F0"
+    app:cardCornerRadius="20dp"
+    app:contentPadding="10dp">
 
     <LinearLayout
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:orientation="vertical">
+        android:orientation="horizontal"
+        android:padding="10dp">
 
-        <TextView
-            android:id="@+id/customerName"
+        <CheckedTextView
+            android:id="@+id/text1"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:checkMark="?android:attr/listChoiceIndicatorMultiple"
+            android:paddingLeft="5dp"
+            android:paddingRight="5dp"
+            android:textAlignment="center" />
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Tên khách hàng"
-            android:textAllCaps="true"
-            android:textAppearance="?android:attr/textAppearanceListItem"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingLeft="16dp">
 
-        <TextView
-            android:id="@+id/phoneNumber"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textAppearance="?android:attr/textAppearanceListItemSmall"
-            android:text="Số điện thoại"/>
 
-        <TextView
-            android:id="@+id/registrationDate"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textAppearance="?android:attr/textAppearanceListItemSmall"
-            android:text="Ngày ĐK"/>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
 
-        <TextView
-            android:id="@+id/expirationDate"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textAppearance="?android:attr/textAppearanceListItemSmall"
-            android:text="Ngày HH"/>
+                <TextView
+                    android:id="@+id/customerName"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                    android:layout_marginBottom="5dp"
+                    android:text="Tên khách hàng"
+                    android:textAllCaps="true"
+                    android:textAppearance="?android:attr/textAppearanceListItem"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/lastTime"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textAppearance="?android:attr/textAppearanceListItemSmall"
-            android:text="Gửi gần nhất"/>
+                <TextView
+                    android:id="@+id/useDate"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="5dp"
+                    android:text="01/01/2023 ~ 01/01/2024\n (Còn 10 ngày)"
+                    android:textAlignment="center"
+                    android:textAllCaps="true"
+                    android:textAppearance="?android:attr/textAppearanceListItem"
+                    android:textColor="#4CAF50"
+                    android:textSize="12sp" />
+
+            </LinearLayout>
+
+<!--            <TextView-->
+<!--                android:id="@+id/customerName"-->
+<!--                android:layout_width="match_parent"-->
+<!--                android:layout_height="wrap_content"-->
+<!--                android:text="Tên khách hàng"-->
+<!--                android:textAllCaps="true"-->
+<!--                android:textAppearance="?android:attr/textAppearanceListItem"-->
+<!--                android:textSize="20sp"-->
+<!--                android:textStyle="bold"-->
+<!--                android:layout_marginBottom="5dp" />-->
+
+            <TextView
+                android:id="@+id/phoneNumber"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="5dp"
+                android:text="Số điện thoại"
+                android:textAppearance="?android:attr/textAppearanceListItemSmall"
+                android:textColor="#939191"
+                android:textStyle="bold|italic" />
+
+<!--            <TextView-->
+<!--                android:id="@+id/registrationDate"-->
+<!--                android:layout_width="match_parent"-->
+<!--                android:layout_height="wrap_content"-->
+<!--                android:text="Ngày ĐK"-->
+<!--                android:textAppearance="?android:attr/textAppearanceListItemSmall"-->
+<!--                android:layout_marginBottom="5dp" />-->
+
+<!--            <TextView-->
+<!--                android:id="@+id/expirationDate"-->
+<!--                android:layout_width="match_parent"-->
+<!--                android:layout_height="wrap_content"-->
+<!--                android:text="Ngày HH"-->
+<!--                android:textAppearance="?android:attr/textAppearanceListItemSmall"-->
+<!--                android:layout_marginBottom="5dp" />-->
+
+            <TextView
+                android:id="@+id/lastTime"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Gửi gần nhất"
+                android:textAppearance="?android:attr/textAppearanceListItemSmall" />
+
+        </LinearLayout>
 
     </LinearLayout>
 
-
-</LinearLayout>
-
-    <!--<?xml version="1.0" encoding="utf-8"?>-->
-<!--<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"-->
-<!--    android:layout_width="fill_parent"-->
-<!--    android:layout_height="wrap_content"-->
-<!--    android:orientation="horizontal">-->
-
-<!--    <ImageView-->
-<!--        android:layout_width="50dp"-->
-<!--        android:layout_height="50dp"-->
-<!--        android:src="@mipmap/ic_launcher"/>-->
-<!--    <CheckedTextView-->
-<!--        android:id="@+id/text1"-->
-<!--        android:layout_width="match_parent"-->
-<!--        android:layout_height="?android:attr/listPreferredItemHeightSmall"-->
-<!--        android:textAppearance="?android:attr/textAppearanceListItemSmall"-->
-<!--        android:gravity="center_vertical"-->
-<!--        android:checkMark="?android:attr/listChoiceIndicatorMultiple"-->
-<!--        android:paddingLeft="?android:attr/listPreferredItemPaddingLeft"-->
-<!--        android:paddingRight="?android:attr/listPreferredItemPaddingRight"/>-->
-<!--</LinearLayout>-->
+</androidx.cardview.widget.CardView>
