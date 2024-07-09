@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="8dp">
+
+    <!--    <ImageView-->
+<!--        android:layout_width="50dp"-->
+<!--        android:layout_height="50dp"-->
+<!--        android:src="@mipmap/ic_launcher"-->
+<!--        android:layout_marginRight="8dp"/>-->
+
+    <CheckedTextView
+        android:id="@+id/text1"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:checkMark="?android:attr/listChoiceIndicatorMultiple"
+        android:paddingLeft="8dp"
+        android:paddingRight="8dp"
+        android:textAlignment="center" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/customerName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Tên khách hàng"
+            android:textAllCaps="true"
+            android:textAppearance="?android:attr/textAppearanceListItem"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/phoneNumber"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceListItemSmall"
+            android:text="Số điện thoại"/>
+
+        <TextView
+            android:id="@+id/registrationDate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceListItemSmall"
+            android:text="Ngày ĐK"/>
+
+        <TextView
+            android:id="@+id/expirationDate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceListItemSmall"
+            android:text="Ngày HH"/>
+
+        <TextView
+            android:id="@+id/lastTime"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceListItemSmall"
+            android:text="Gửi gần nhất"/>
+
+    </LinearLayout>
+
+
+</LinearLayout>
+
+    <!--<?xml version="1.0" encoding="utf-8"?>-->
+<!--<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"-->
+<!--    android:layout_width="fill_parent"-->
+<!--    android:layout_height="wrap_content"-->
+<!--    android:orientation="horizontal">-->
+
+<!--    <ImageView-->
+<!--        android:layout_width="50dp"-->
+<!--        android:layout_height="50dp"-->
+<!--        android:src="@mipmap/ic_launcher"/>-->
+<!--    <CheckedTextView-->
+<!--        android:id="@+id/text1"-->
+<!--        android:layout_width="match_parent"-->
+<!--        android:layout_height="?android:attr/listPreferredItemHeightSmall"-->
+<!--        android:textAppearance="?android:attr/textAppearanceListItemSmall"-->
+<!--        android:gravity="center_vertical"-->
+<!--        android:checkMark="?android:attr/listChoiceIndicatorMultiple"-->
+<!--        android:paddingLeft="?android:attr/listPreferredItemPaddingLeft"-->
+<!--        android:paddingRight="?android:attr/listPreferredItemPaddingRight"/>-->
+<!--</LinearLayout>-->
