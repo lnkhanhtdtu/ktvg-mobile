@@ -119,73 +119,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void SendSmsContent(Customer customer) {
-        String SENT = "SMS_SENT";
-        String DELIVERED = "SMS_DELIVERED";
-
-        PendingIntent sentPI = PendingIntent.getBroadcast(this, 0, new Intent(SENT), PendingIntent.FLAG_IMMUTABLE);
-        PendingIntent deliveredPI = PendingIntent.getBroadcast(this, 0, new Intent(DELIVERED), PendingIntent.FLAG_IMMUTABLE);
-
-        BroadcastReceiver sentReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                try {
-                    switch (getResultCode()) {
-                        case Activity.RESULT_OK:
-                            Toast.makeText(getBaseContext(), "Gửi SMS tới [" + customer.getCustomerName() + "] thành công", Toast.LENGTH_SHORT).show();
-                            addLog(customer, true, "");
-                            break;
-                        case SmsManager.RESULT_ERROR_GENERIC_FAILURE:
-                            showError(customer, "Lỗi chung khi gửi tin nhắn.");
-                            break;
-                        case SmsManager.RESULT_ERROR_NO_SERVICE:
-                            showError(customer, "Không có dịch vụ.");
-                            break;
-                        case SmsManager.RESULT_ERROR_NULL_PDU:
-                            showError(customer, "PDU null.");
-                            break;
-                        case SmsManager.RESULT_ERROR_RADIO_OFF:
-                            showError(customer, "Radio tắt.");
-                            break;
-                        default:
-                            showError(customer, "Lỗi khác.");
-                            break;
-                    }
-                } catch (Exception e) {
-                    showError(customer, "Lỗi trong khi xử lý kết quả gửi: " + e.getMessage());
-                } finally {
-                    unregisterReceiver(this);
-                    loadLocates(); // Tải lại danh sách sau khi xử lý xong kết quả gửi tin nhắn
-                }
-            }
-        };
-        registerReceiver(sentReceiver, new IntentFilter(SENT));
-
-        BroadcastReceiver deliveredReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                try {
-                    switch (getResultCode()) {
-                        case Activity.RESULT_OK:
-                            Toast.makeText(getBaseContext(), "SMS đã được nhận bởi [" + customer.getCustomerName() + "]", Toast.LENGTH_SHORT).show();
-                            break;
-                        case Activity.RESULT_CANCELED:
-                            showError(customer, "SMS không được nhận.");
-                            break;
-                    }
-                } catch (Exception e) {
-                    showError(customer, "Lỗi trong khi xử lý kết quả nhận: " + e.getMessage());
-                } finally {
-                    unregisterReceiver(this);
-                }
-            }
-        };
-        registerReceiver(deliveredReceiver, new IntentFilter(DELIVERED));
-
-        try {
+        try
+        {
             SmsManager smsManager = SmsManager.getDefault();
-            smsManager.sendTextMessage(customer.getPhoneNumber(), null, customer.getMessageContent(), sentPI, deliveredPI);
-        } catch (Exception e) {
-            showError(customer, "Gửi SMS thất bại: " + e.getMessage());
+            ArrayList<String> parts = smsManager.divideMessage(customer.getMessageContent());
+            smsManager.sendMultipartTextMessage(customer.getPhoneNumber(), null, parts, null, null);
+
+            Toast.makeText(getApplicationContext(),"Gửi SMS tới [" + customer.getCustomerName() + "] thành công",Toast.LENGTH_LONG).show();
+            addLog(customer, true, "");
+            System.out.println("Gửi tới: " + customer.toString());
+        }
+        catch (Exception e)
+        {
+            addLog(customer, false, e.getMessage());
+            System.out.println("Gui that bai");
+            Toast.makeText(getApplicationContext(),"Gửi SMS tới [" + customer.getCustomerName() + "] thất bại",Toast.LENGTH_LONG).show();
         }
     }
 
