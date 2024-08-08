@@ -84,6 +84,13 @@ public class MainActivity extends AppCompatActivity {
                     System.out.println(customer.toString());
 
                     SendSmsContent(customer);
+
+                    try {
+                        // Delay 1 phút = 60 giây * 1000 milliseconds
+                        Thread.sleep(5 * 1000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                 }
 
                 myArrayAdapter.clearSelections(); // Xóa các mục đã chọn sau khi gửi tin nhắn
