@@ -25,8 +25,17 @@
         android:layout_height="wrap_content"
         android:hint="Thời gian delay (giây)"
         android:inputType="number"
-        android:text="2"
+        android:text="5"
         android:layout_marginTop="8dp"/>
+
+    <EditText
+        android:id="@+id/edt_msg"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Nội dung tin nhắn"
+        android:inputType="textMultiLine"
+        android:text="Hien tai hop den/ dinh vi GPS cua Quy khach da het han. Quy khach vui long gia han de tiep tuc su dung dich vu."
+        android:layout_marginTop="8dp" />
 
     <Button
         android:id="@+id/btn_send"
