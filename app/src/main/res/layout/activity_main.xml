@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp"
+    android:padding="20dp"
     tools:context=".MainActivity">
 
     <Button
@@ -16,51 +16,64 @@
         android:id="@+id/tv_file_path"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Đường dẫn file..."
-        android:layout_marginTop="8dp"/>
+        android:layout_marginTop="8dp"
+        android:hint="Đường dẫn file..." />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Thời gian delay (giây) mỗi tin nhắn:" />
 
     <EditText
         android:id="@+id/edt_delay"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="-10dp"
         android:hint="Thời gian delay (giây)"
         android:inputType="number"
-        android:text="5"
-        android:layout_marginTop="8dp"/>
+        android:text="10" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Nội dung tin nhắn:" />
 
     <EditText
         android:id="@+id/edt_msg"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="-10dp"
         android:hint="Nội dung tin nhắn"
         android:inputType="textMultiLine"
-        android:text="Hien tai hop den/ dinh vi GPS cua Quy khach da het han. Quy khach vui long gia han de tiep tuc su dung dich vu."
-        android:layout_marginTop="8dp" />
+        android:text="Hien tai hop den/ dinh vi GPS cua Quy khach da het han. Quy khach vui long gia han de tiep tuc su dung dich vu." />
 
     <Button
         android:id="@+id/btn_send"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Gửi Tin Nhắn"
-        android:layout_marginTop="16dp"/>
+        android:layout_marginTop="16dp"
+        android:text="Gửi Tin Nhắn" />
 
     <TextView
         android:id="@+id/tv_processed_count"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Số tin đã xử lý: 0"
-        android:layout_marginTop="16dp"/>
+        android:layout_marginTop="16dp"
+        android:text="Số tin đã xử lý: 0/0" />
 
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginTop="8dp">
+        android:layout_marginTop="8dp"
+        android:layout_weight="1">
+
         <TextView
             android:id="@+id/tv_log"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="12sp"/>
+            android:textSize="12sp" />
 
     </ScrollView>
 
@@ -68,8 +81,7 @@
         android:id="@+id/btn_save_log"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Lưu Log"
         android:layout_marginTop="8dp"
-        />
+        android:text="Lưu Log" />
 
 </LinearLayout>

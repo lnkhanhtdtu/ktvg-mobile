@@ -71,6 +71,7 @@ public class MainActivity extends AppCompatActivity {
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
     String currentTime;
 
+    int totalLines = 0; // Biến đếm số dòng
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -157,7 +158,7 @@ public class MainActivity extends AppCompatActivity {
         phoneNumbers.clear(); // Clear previous numbers
         processedCount = 0; //Reset
         currentPhoneNumberIndex = 0;
-        tvProcessedCount.setText("[" + currentTime + "] Số tin đã xử lý: 0");
+        tvProcessedCount.setText("[" + currentTime + "] Số tin đã xử lý: 0/" + totalLines);
         logBuilder = new StringBuilder();
         tvLog.setText("");
 
@@ -166,6 +167,8 @@ public class MainActivity extends AppCompatActivity {
             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
             String line;
             while ((line = reader.readLine()) != null) {
+                totalLines++; // Tăng số dòng
+
                 // Simple validation and cleaning
                 String cleanedNumber = line.trim().replaceAll("[^0-9]", "");
                 if (!cleanedNumber.isEmpty()) {
@@ -228,7 +231,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             processedCount++;
-            tvProcessedCount.setText("Số tin đã xử lý: " + processedCount);
+            tvProcessedCount.setText("Số tin đã xử lý: " + processedCount + "/" + totalLines);
 
             currentPhoneNumberIndex++;
             handler.postDelayed(this::sendMessageWithDelay, delayMillis); // Lặp lại sau delay
@@ -297,7 +300,21 @@ public class MainActivity extends AppCompatActivity {
         try {
             String msgStr = edtMsg.getText().toString();
             SmsManager smsManager = SmsManager.getDefault();
-            smsManager.sendTextMessage(phoneNumber, null, msgStr, sentPI, null); //Truyền sentPI, deliveredPI = null
+
+            // Kiểm tra tin nhắn có vượt quá giới hạn ký tự không
+            ArrayList<String> parts = smsManager.divideMessage(msgStr);
+            if (parts.size() > 1) {
+                // Tin nhắn dài, gửi nhiều phần
+                ArrayList<PendingIntent> sentIntents = new  ArrayList<PendingIntent>();
+                for(int i = 0; i< parts.size(); i++)
+                {
+                    sentIntents.add(sentPI);
+                }
+                smsManager.sendMultipartTextMessage(phoneNumber, null, parts, sentIntents, null);
+            } else {
+                // Tin nhắn ngắn, gửi bình thường
+                smsManager.sendTextMessage(phoneNumber, null, msgStr, sentPI, null);
+            }
 
         } catch (Exception e) { // Bắt Exception
             currentTime = sdf.format(new Date());
