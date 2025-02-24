@@ -1,425 +1,251 @@
 package com.example.tmp1;
 
-import androidx.appcompat.app.AppCompatActivity;
-
-import android.app.Activity;
-import android.app.PendingIntent;
-import android.app.ProgressDialog;
-import android.content.BroadcastReceiver;
+import android.Manifest;
 import android.content.Intent;
-import android.content.IntentFilter;
+import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Bundle;
-import android.content.Context;
+import android.os.Environment;
+import android.os.Handler;
+import android.provider.DocumentsContract;
 import android.telephony.SmsManager;
-import android.util.SparseBooleanArray;
-import android.view.LayoutInflater;
+import android.util.Log;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.CheckedTextView;
-import android.widget.ListView;
-import android.widget.ProgressBar;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
-import com.android.volley.Request;
-import com.android.volley.Response;
-import com.android.volley.VolleyError;
-import com.android.volley.toolbox.JsonArrayRequest;
-import com.android.volley.toolbox.JsonObjectRequest;
-import com.android.volley.toolbox.Volley;
-import com.google.android.material.snackbar.Snackbar;
-
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.TimeZone;
 
 public class MainActivity extends AppCompatActivity {
 
-    ListView myListView;
-    Button sendSMS;
-    Button selectAll;
-    ArrayList<Customer> customerList = new ArrayList<>();
-    MyArrayAdapter myArrayAdapter;
-    private ProgressBar progressBar;
+    private static final int REQUEST_CODE_PICK_FILE = 1;
+    private static final int REQUEST_CODE_PERMISSION_SEND_SMS = 2;
+    private static final int REQUEST_CODE_WRITE_EXTERNAL_STORAGE = 3;
+
+
+    private Button btnChooseFile;
+    private TextView tvFilePath;
+    private EditText edtDelay;
+    private Button btnSend;
+    private TextView tvProcessedCount;
+    private TextView tvLog;
+    private Button btnSaveLog;
+
+    private List<String> phoneNumbers;
+    private int processedCount = 0;
+    private StringBuilder logBuilder;
+    private Handler handler;
+    private int currentPhoneNumberIndex = 0;
+    private long delayMillis = 2000; // Default delay: 2 seconds
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        progressBar = findViewById(R.id.progressBar);
+
+        btnChooseFile = findViewById(R.id.btn_choose_file);
+        tvFilePath = findViewById(R.id.tv_file_path);
+        edtDelay = findViewById(R.id.edt_delay);
+        btnSend = findViewById(R.id.btn_send);
+        tvProcessedCount = findViewById(R.id.tv_processed_count);
+        tvLog = findViewById(R.id.tv_log);
+        btnSaveLog = findViewById(R.id.btn_save_log);
+        logBuilder = new StringBuilder();
+        handler = new Handler();
+
+        phoneNumbers = new ArrayList<>(); // Initialize the list
+
+        btnChooseFile.setOnClickListener(v -> openFilePicker());
+        btnSend.setOnClickListener(v -> startSendingMessages());
+        btnSaveLog.setOnClickListener(v -> saveLogToFile());
+
+        checkAndRequestPermissions();
+    }
+    private void checkAndRequestPermissions() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.SEND_SMS}, REQUEST_CODE_PERMISSION_SEND_SMS);
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
+        {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_CODE_WRITE_EXTERNAL_STORAGE);
+        }
+    }
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_CODE_PERMISSION_SEND_SMS) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // SMS permission granted
+            } else {
+                Toast.makeText(this, "SMS permission denied!", Toast.LENGTH_SHORT).show();
+                // Handle permission denial (e.g., disable send button)
+            }
+        }
+
+        if (requestCode == REQUEST_CODE_WRITE_EXTERNAL_STORAGE)
+        {
+            if (grantResults.length > 0 && grantResults[0] != PackageManager.PERMISSION_GRANTED)
+            {
+                Toast.makeText(this,"Storage permission is required to save logs.", Toast.LENGTH_LONG).show();
+                btnSaveLog.setEnabled(false);
+            }
+        }
+    }
+
+    private void openFilePicker() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("text/plain"); // Or use "*/*" for all file types
+        //For API Level > = 19
+        startActivityForResult(intent, REQUEST_CODE_PICK_FILE);
+
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_CODE_PICK_FILE && resultCode == RESULT_OK) {
+            if (data != null) {
+                Uri uri = data.getData();
+                tvFilePath.setText(uri.getPath()); // Display the path (for user info)
+                readPhoneNumbersFromFile(uri);
+            }
+        }
+    }
+    private void readPhoneNumbersFromFile(Uri uri) {
+        phoneNumbers.clear(); // Clear previous numbers
+        processedCount = 0; //Reset
+        currentPhoneNumberIndex = 0;
+        tvProcessedCount.setText("Số tin đã xử lý: 0");
+        logBuilder = new StringBuilder();
+        tvLog.setText("");
 
         try {
-            loadLocates();
-        } catch (Exception e){
-            System.out.println("Lỗi: " + e.getMessage());
-        }
-
-        myListView = findViewById(R.id.list);
-        myArrayAdapter = new MyArrayAdapter(this, R.layout.row, customerList);
-        myListView.setAdapter(myArrayAdapter);
-        myListView.setOnItemClickListener(myOnItemClickListener);
-
-        sendSMS = findViewById(R.id.getresult);
-        sendSMS.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                List<Customer> resultList = myArrayAdapter.getCheckedItems();
-                for (Customer customer : resultList) {
-                    System.out.println(customer.toString());
-
-                    SendSmsContent(customer);
-
-                    try {
-                        // Delay 1 phút = 60 giây * 1000 milliseconds
-                        Thread.sleep(5 * 1000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
-
-                myArrayAdapter.clearSelections(); // Xóa các mục đã chọn sau khi gửi tin nhắn
-                updateSendSMSItemCount(); // Cập nhật lại số lượng mục đã chọn
-            }
-        });
-
-//        selectAll = findViewById(R.id.select_all);
-//        selectAll.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View v) {
-//                if (selectAll.getText().toString().contains("Chọn tất cả")) {
-//                    myArrayAdapter.selectAll();
-//                    selectAll.setText("Bỏ chọn tất cả");
-//                } else {
-//                    myArrayAdapter.deselectAll();
-//                    selectAll.setText("Chọn tất cả");
-//                }
-//                updateSelectedItemCount();
-//            }
-//        });
-    }
-
-    private void updateSelectedItemCount() {
-        int count = myArrayAdapter.getCheckedItemCount();
-        selectAll.setText("Chọn tất cả (" + count + ")");
-    }
-
-    private void updateSendSMSItemCount() {
-        List<Customer> resultList = myArrayAdapter.getCheckedItems();
-        int count = resultList.size();
-        sendSMS.setText("Gửi SMS (" + count + ")");
-    }
-
-    private void SendSmsContent(Customer customer) {
-        try
-        {
-            SmsManager smsManager = SmsManager.getDefault();
-            ArrayList<String> parts = smsManager.divideMessage(customer.getMessageContent());
-            smsManager.sendMultipartTextMessage(customer.getPhoneNumber(), null, parts, null, null);
-
-            Toast.makeText(getApplicationContext(),"Gửi SMS tới [" + customer.getCustomerName() + "] thành công",Toast.LENGTH_LONG).show();
-            addLog(customer, true, "");
-            System.out.println("Gửi tới: " + customer.toString());
-        }
-        catch (Exception e)
-        {
-            addLog(customer, false, e.getMessage());
-            System.out.println("Gui that bai");
-            Toast.makeText(getApplicationContext(),"Gửi SMS tới [" + customer.getCustomerName() + "] thất bại",Toast.LENGTH_LONG).show();
-        }
-    }
-
-
-    private void showError(Customer customer, String message) {
-        addLog(customer, false, message);
-        System.out.println("Gửi thất bại");
-        Toast.makeText(getBaseContext(), "Gửi SMS tới [" + customer.getCustomerName() + "] thất bại", Toast.LENGTH_SHORT).show();
-    }
-
-    AdapterView.OnItemClickListener myOnItemClickListener = new AdapterView.OnItemClickListener() {
-        @Override
-        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-            myArrayAdapter.toggleChecked(position);
-            updateSendSMSItemCount();
-        }
-    };
-
-    private class MyArrayAdapter extends ArrayAdapter<Customer> {
-
-        private HashMap<Integer, Boolean> myChecked = new HashMap<>();
-
-
-        private List<Customer> customerList;
-        private SparseBooleanArray checkedItems;
-
-
-        public MyArrayAdapter(Context context, int resource, List<Customer> objects) {
-            super(context, resource, objects);
-            for (int i = 0; i < objects.size(); i++) {
-                myChecked.put(i, false);
-            }
-
-            this.customerList = objects;
-            this.checkedItems = new SparseBooleanArray();
-        }
-
-        public void toggleChecked(int position) {
-            if (myChecked.containsKey(position)) {
-                myChecked.put(position, !myChecked.get(position));
-            } else {
-                myChecked.put(position, true);
-            }
-            notifyDataSetChanged();
-        }
-
-        public List<Customer> getCheckedItems() {
-            List<Customer> checkedItems = new ArrayList<>();
-            for (int i = 0; i < getCount(); i++) {
-                if (myChecked.get(i) != null && myChecked.get(i)) {
-                    checkedItems.add(getItem(i));
+            InputStream inputStream = getContentResolver().openInputStream(uri);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                // Simple validation and cleaning
+                String cleanedNumber = line.trim().replaceAll("[^0-9]", "");
+                if (!cleanedNumber.isEmpty()) {
+                    phoneNumbers.add(cleanedNumber);
                 }
             }
-            return checkedItems;
-        }
-
-        @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
-            ViewHolder viewHolder;
-            if (convertView == null) {
-                LayoutInflater inflater = getLayoutInflater();
-                convertView = inflater.inflate(R.layout.row, parent, false);
-                viewHolder = new ViewHolder();
-                viewHolder.checkedTextView = convertView.findViewById(R.id.text1);
-                viewHolder.customerName = convertView.findViewById(R.id.customerName);
-                viewHolder.phoneNumber = convertView.findViewById(R.id.phoneNumber);
-//                viewHolder.registrationDate = convertView.findViewById(R.id.registrationDate);
-//                viewHolder.expirationDate = convertView.findViewById(R.id.expirationDate);
-                viewHolder.useDate = convertView.findViewById(R.id.useDate);
-                viewHolder.lastTime = convertView.findViewById(R.id.lastTime);
-
-                convertView.setTag(viewHolder);
-            } else {
-                viewHolder = (ViewHolder) convertView.getTag();
-            }
-
-            Customer customer = getItem(position);
-            if (customer != null) {
-                // Ngày hiện tại
-                long currentTimeMillis = System.currentTimeMillis();
-
-                // Ngày "20/01/2024"
-                SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
-                Date date2024 = null;
-                try {
-                    date2024 = sdf.parse(customer.getLastTime());
-                } catch (ParseException e) {
-                    e.printStackTrace();
-                }
-                long date2024Millis = date2024 != null ? date2024.getTime() : 0;
-
-                // Tính số ngày
-                long diffInMillis = currentTimeMillis - date2024Millis;
-                long daysBetween = diffInMillis / (1000 * 60 * 60 * 24);
-                String lastTime = customer.getLastTime().equals("01/01/0001") ? " - " : customer.getLastTime() + " (Đã gửi ngày "+daysBetween+" trước)";
-
-                viewHolder.customerName.setText(customer.getCustomerName());
-                viewHolder.phoneNumber.setText(customer.getPhoneNumber());
-//                viewHolder.registrationDate.setText(customer.getRegistrationDate());
-//                viewHolder.expirationDate.setText(customer.getExpirationDate());
-                viewHolder.useDate.setText(customer.getRegistrationDate() + " ~ " + customer.getExpirationDate() + "\n(Còn "+customer.getExpirationDays()+" ngày)");
-                viewHolder.lastTime.setText(lastTime);
-
-                Boolean checked = myChecked.get(position);
-                viewHolder.checkedTextView.setChecked(checked != null && checked);
-            }
-
-            return convertView;
-        }
-
-        private class ViewHolder {
-            CheckedTextView checkedTextView;
-            TextView customerName;
-            TextView phoneNumber;
-            TextView registrationDate;
-            TextView expirationDate;
-            TextView useDate;
-            TextView lastTime;
-        }
-
-        public void clearSelections() {
-            myChecked.clear();
-            for (int i = 0; i < getCount(); i++) {
-                myChecked.put(i, false);
-            }
-            notifyDataSetChanged();
-        }
-
-        public void selectAll() {
-            for (int i = 0; i < customerList.size(); i++) {
-                checkedItems.put(i, true);
-            }
-            notifyDataSetChanged();
-        }
-
-        public void deselectAll() {
-            checkedItems.clear();
-            notifyDataSetChanged();
-        }
-
-        public int getCheckedItemCount() {
-            int count = 0;
-            for (int i = 0; i < checkedItems.size(); i++) {
-                if (checkedItems.valueAt(i)) {
-                    count++;
-                }
-            }
-            return count;
-        }
-
-//        public List<Customer> getCheckedItems() {
-//            List<Customer> checkedCustomers = new ArrayList<>();
-//            for (int i = 0; i < customerList.size(); i++) {
-//                if (checkedItems.get(i)) {
-//                    checkedCustomers.add(customerList.get(i));
-//                }
-//            }
-//            return checkedCustomers;
-//        }
-    }
-
-    private void loadLocates() {
-        String url = "https://ktvinagroup.com/api/LocateClients";
-
-        JsonArrayRequest request = new JsonArrayRequest(Request.Method.GET, url, null,
-                new Response.Listener<JSONArray>() {
-                    @Override
-                    public void onResponse(JSONArray response) {
-                        System.out.println("Response from API: " + response.toString());
-                        try {
-                            List<Customer> customers = parseCustomers(response);
-                            customerList.clear();
-                            customerList.addAll(customers);
-                            myArrayAdapter.notifyDataSetChanged();
-                        } catch (JSONException e) {
-                            e.printStackTrace();
-                            Toast.makeText(MainActivity.this, "Error parsing JSON: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                        }
-                        progressBar.setVisibility(View.GONE);
-                    }
-                },
-                new Response.ErrorListener() {
-                    @Override
-                    public void onErrorResponse(VolleyError error) {
-                        Toast.makeText(MainActivity.this, "Error loading customers: " + error.getMessage(), Toast.LENGTH_SHORT).show();
-                        progressBar.setVisibility(View.GONE);
-                    }
-                });
-
-        Volley.newRequestQueue(this).add(request);
-    }
-
-
-    private void addLog(Customer customer, Boolean isSuccess, String responseMessage) {
-        String url = "https://ktvinagroup.com/api/LogSmsClients";
-
-        JSONObject logJson = new JSONObject();
-
-        try {
-            // Lấy thời gian hiện tại và định dạng theo chuẩn ISO 8601
-            Date now = new Date();
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault());
-//            sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
-            String formattedDate = sdf.format(now);
-
-            logJson.put("phoneNumber", customer.getPhoneNumber());
-            logJson.put("messageContent", customer.getMessageContent());
-            logJson.put("sentTime", formattedDate);
-            logJson.put("isSuccess", isSuccess);
-            logJson.put("responseMessage", responseMessage);
-            logJson.put("locateId", customer.getId());
-
-        } catch (JSONException e) {
+            reader.close();
+            inputStream.close();
+        } catch (IOException e) {
             e.printStackTrace();
-            Toast.makeText(MainActivity.this, "Error creating JSON: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Lỗi đọc file!", Toast.LENGTH_SHORT).show();
+            logBuilder.append("Lỗi đọc file: " + e.getMessage() + "\n");
+            tvLog.setText(logBuilder.toString());
+
+        }
+    }
+
+
+
+    private void startSendingMessages() {
+        if (phoneNumbers.isEmpty()) {
+            Toast.makeText(this, "Không có số điện thoại nào!", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Tạo yêu cầu POST
-        JsonObjectRequest request = new JsonObjectRequest(Request.Method.POST, url, logJson,
-                new Response.Listener<JSONObject>() {
-                    @Override
-                    public void onResponse(JSONObject response) {
-                        // Xử lý phản hồi từ API
-                        System.out.println("Response from API (thành công): " + response.toString());
-//                        Toast.makeText(MainActivity.this, "Customer added successfully!", Toast.LENGTH_SHORT).show();
-                    }
-                },
-                new Response.ErrorListener() {
-                    @Override
-                    public void onErrorResponse(VolleyError error) {
-                        // Xử lý lỗi từ API
-                        error.printStackTrace();
-                        System.out.println("Response from API (thất bại): " + error.getMessage());
-                        System.out.println("Response from API (thất bại) với json: " + logJson);
-////                        Toast.makeText(MainActivity.this, "Error adding customer: " + error.getMessage(), Toast.LENGTH_SHORT).show();
-                    }
-                });
-
-        // Thêm yêu cầu vào hàng đợi
-        Volley.newRequestQueue(this).add(request);
-    }
-
-    private List<Customer> parseCustomers(JSONArray response) throws JSONException {
-        List<Customer> customers = new ArrayList<>();
-        for (int i = 0; i < response.length(); i++) {
-            JSONObject jsonObject = response.getJSONObject(i);
-            int id = jsonObject.getInt("id");
-            String customerName = jsonObject.getString("customerName");
-            String phoneNumber = jsonObject.getString("phoneNumber");
-            String messageContent = jsonObject.getString("messageContent");
-            String productName = jsonObject.getString("productName");
-            String vehicleNumber = jsonObject.getString("vehicleNumber");
-            String registrationDate = jsonObject.getString("registrationDate");
-            String latestRenewalDate = jsonObject.optString("latestRenewalDate", null);
-            String expirationDate = jsonObject.optString("expirationDate", null);
-            String lastTime = jsonObject.getString("lastTime");
-            int expirationDays = jsonObject.getInt("expirationDays");
-
-            Customer customer = new Customer(id, customerName, phoneNumber, messageContent, productName, vehicleNumber, convertDateFormat(registrationDate), convertDateFormat(latestRenewalDate), convertDateFormat(expirationDate), convertDateFormat(lastTime), expirationDays);
-            customers.add(customer);
-        }
-        return customers;
-    }
-
-    private String convertDateFormat(String dateString) {
-        if (dateString == null || dateString.isEmpty()) {
-            return "";
+        String delayStr = edtDelay.getText().toString();
+        if (!delayStr.isEmpty()) {
+            try {
+                delayMillis = Long.parseLong(delayStr) * 1000; // Convert seconds to milliseconds
+            } catch (NumberFormatException e) {
+                Toast.makeText(this, "Delay không hợp lệ!", Toast.LENGTH_SHORT).show();
+                return;
+            }
         }
 
-        SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
-        SimpleDateFormat outputFormat = new SimpleDateFormat("dd/MM/yyyy");
+        btnSend.setEnabled(false); // Prevent multiple clicks
+        btnChooseFile.setEnabled(false); // Disable while sending
+        edtDelay.setEnabled(false);
+
+        currentPhoneNumberIndex = 0; //Start sending
+        sendMessageWithDelay();
+
+    }
+
+    private void sendMessageWithDelay() {
+        if (currentPhoneNumberIndex < phoneNumbers.size()) {
+            String phoneNumber = phoneNumbers.get(currentPhoneNumberIndex);
+            sendSMS(phoneNumber);
+            processedCount++;
+            tvProcessedCount.setText("Số tin đã xử lý: " + processedCount);
+
+            currentPhoneNumberIndex++;
+            handler.postDelayed(this::sendMessageWithDelay, delayMillis); // Recursive call with delay
+        } else {
+            // All messages sent (or attempted)
+            btnSend.setEnabled(true);
+            btnChooseFile.setEnabled(true);
+            edtDelay.setEnabled(true);
+            Toast.makeText(this, "Đã gửi xong!", Toast.LENGTH_SHORT).show();
+
+        }
+    }
+
+
+
+    private void sendSMS(String phoneNumber) {
+        try {
+            SmsManager smsManager = SmsManager.getDefault();
+            smsManager.sendTextMessage(phoneNumber, null, "Noi dung tin nhan test", null, null);  // Replace "Test SMS"
+            logBuilder.append("Gửi thành công: " + phoneNumber + "\n");
+
+        } catch (Exception e) {
+            logBuilder.append("Lỗi gửi tới " + phoneNumber + ": " + e.getMessage() + "\n");
+            e.printStackTrace(); // Log the full stack trace for debugging
+
+        }
+        tvLog.setText(logBuilder.toString()); // Update the UI with current log
+    }
+
+
+
+    private void saveLogToFile() {
+
+        if (logBuilder.length() == 0) {
+            Toast.makeText(this, "Không có nội dung để lưu!", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
         try {
-            Date date = inputFormat.parse(dateString); // Chuyển chuỗi thành đối tượng Date
-            return outputFormat.format(date); // Chuyển đối tượng Date thành chuỗi với định dạng mong muốn
-        } catch (ParseException e) {
+            // Create a file in the Downloads directory
+            File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+            File logFile = new File(downloadsDir, "sms_log.txt");
+
+
+            FileOutputStream fileOutputStream = new FileOutputStream(logFile);
+            OutputStreamWriter outputStreamWriter = new OutputStreamWriter(fileOutputStream);
+            outputStreamWriter.write(logBuilder.toString());
+            outputStreamWriter.close();
+            fileOutputStream.close();
+
+            Toast.makeText(this, "Đã lưu log tại: " + logFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
+
+        } catch (IOException e) {
             e.printStackTrace();
-            return dateString; // Trả về chuỗi gốc nếu có lỗi
+            Toast.makeText(this, "Lỗi lưu file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            Log.e("SMS_APP", "Error saving log file: " + e.getMessage());
+
         }
     }
 

@@ -1,54 +1,66 @@
-<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="16dp"
+    tools:context=".MainActivity">
 
-    <ListView
-        android:id="@+id/list"
+    <Button
+        android:id="@+id/btn_choose_file"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Chọn File Số Điện Thoại" />
+
+    <TextView
+        android:id="@+id/tv_file_path"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Đường dẫn file..."
+        android:layout_marginTop="8dp"/>
+
+    <EditText
+        android:id="@+id/edt_delay"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Thời gian delay (giây)"
+        android:inputType="number"
+        android:text="2"
+        android:layout_marginTop="8dp"/>
+
+    <Button
+        android:id="@+id/btn_send"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Gửi Tin Nhắn"
+        android:layout_marginTop="16dp"/>
+
+    <TextView
+        android:id="@+id/tv_processed_count"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Số tin đã xử lý: 0"
+        android:layout_marginTop="16dp"/>
+
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:divider="@android:color/transparent"
-        android:dividerHeight="10dp"
-        android:padding="8dp" />
-
-    <ProgressBar
-        android:id="@+id/progressBar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
-        android:visibility="visible" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
-
-<!--        <Button-->
-<!--            android:id="@+id/select_all"-->
-<!--            android:layout_width="0dp"-->
-<!--            android:layout_height="wrap_content"-->
-<!--            android:layout_weight="1"-->
-<!--            android:layout_margin="8dp"-->
-<!--            android:text="Chọn tất cả"-->
-<!--            android:textAlignment="center"-->
-<!--            android:textAllCaps="true" />-->
-
-        <Button
-            android:id="@+id/getresult"
-            android:layout_width="0dp"
+        android:layout_marginTop="8dp">
+        <TextView
+            android:id="@+id/tv_log"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_margin="8dp"
-            android:layout_weight="1"
-            android:text="Gửi SMS"
-            android:textAlignment="center"
-            android:textAllCaps="true" />
+            android:textSize="12sp"/>
 
-    </LinearLayout>
+    </ScrollView>
 
-
+    <Button
+        android:id="@+id/btn_save_log"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Lưu Log"
+        android:layout_marginTop="8dp"
+        />
 
 </LinearLayout>
