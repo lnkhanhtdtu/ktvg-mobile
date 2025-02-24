@@ -40,44 +40,48 @@ import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final int REQUEST_CODE_PICK_FILE = 1;
-    private static final int REQUEST_CODE_PERMISSION_SEND_SMS = 2;
-    private static final int REQUEST_CODE_WRITE_EXTERNAL_STORAGE = 3;
+    //region Khai báo biến
+    private static final int REQUEST_CODE_PICK_FILE = 1; // Mã yêu cầu chọn file
+    private static final int REQUEST_CODE_PERMISSION_SEND_SMS = 2; // Mã yêu cầu quyền gửi SMS
+    private static final int REQUEST_CODE_WRITE_EXTERNAL_STORAGE = 3; // Mã yêu cầu quyền ghi vào bộ nhớ
 
-    private static final String SENT = "SMS_SENT";
-    private static final String DELIVERED = "SMS_DELIVERED"; // Không dùng nhưng giữ lại
+    private static final String SENT = "SMS_SENT"; // Action cho Intent khi tin nhắn được gửi
+    private static final String DELIVERED = "SMS_DELIVERED"; // Action cho Intent khi tin nhắn được chuyển giao (không dùng)
 
-    private Button btnChooseFile;
-    private TextView tvFilePath;
-    private EditText edtDelay;
-    private EditText edtMsg;
-    private Button btnSend;
-    private TextView tvProcessedCount;
-    private TextView tvLog;
-    private Button btnSaveLog;
+    private Button btnChooseFile; // Nút chọn file
+    private TextView tvFilePath; // TextView hiển thị đường dẫn file
+    private EditText edtDelay;  // EditText nhập thời gian delay giữa các tin nhắn (giây)
+    private EditText edtMsg;    // EditText nhập nội dung tin nhắn
+    private Button btnSend;      // Nút gửi tin nhắn
+    private TextView tvProcessedCount; // TextView hiển thị số tin nhắn đã xử lý/tổng số tin
+    private TextView tvLog;      // TextView hiển thị log
+    private Button btnSaveLog;    // Nút lưu log
 
-    private List<String> phoneNumbers;
-    private int processedCount = 0;
-    private StringBuilder logBuilder;
-    private Handler handler;
-    private int currentPhoneNumberIndex = 0;
-    private long delayMillis = 2000;
+    private List<String> phoneNumbers; // Danh sách số điện thoại đọc từ file
+    private int processedCount = 0;     // Số tin nhắn đã được xử lý (đã gửi hoặc thử gửi)
+    private StringBuilder logBuilder;  // StringBuilder để xây dựng chuỗi log
+    private Handler handler;          // Handler để xử lý việc gửi tin nhắn với độ trễ
+    private int currentPhoneNumberIndex = 0; // Chỉ số của số điện thoại hiện tại trong danh sách
+    private long delayMillis = 2000;    // Thời gian delay mặc định giữa các tin nhắn (2 giây)
 
-    // BroadcastReceivers
+    // BroadcastReceiver để nhận thông báo khi tin nhắn được gửi thành công hoặc thất bại
     private BroadcastReceiver sentReceiver;
     //private BroadcastReceiver deliveredReceiver; // Không dùng deliveredReceiver
 
-    // Lấy thời gian hiện tại
+    // Định dạng thời gian để ghi log
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
-    String currentTime;
+    String currentTime; // Biến lưu thời gian hiện tại (String, đã format)
 
-    int totalLines = 0; // Biến đếm số dòng
+    int totalLines = 0; // Biến đếm tổng số dòng trong file
+    //endregion
 
+    //region Vòng đời Activity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // Ánh xạ các thành phần UI từ file XML
         btnChooseFile = findViewById(R.id.btn_choose_file);
         tvFilePath = findViewById(R.id.tv_file_path);
         edtDelay = findViewById(R.id.edt_delay);
@@ -87,51 +91,65 @@ public class MainActivity extends AppCompatActivity {
         tvLog = findViewById(R.id.tv_log);
         btnSaveLog = findViewById(R.id.btn_save_log);
 
-        logBuilder = new StringBuilder();
-        handler = new Handler();
-        phoneNumbers = new ArrayList<>();
+        // Khởi tạo các đối tượng
+        logBuilder = new StringBuilder(); // Khởi tạo StringBuilder để lưu log
+        handler = new Handler();            // Khởi tạo Handler để xử lý delay
+        phoneNumbers = new ArrayList<>();    // Khởi tạo danh sách số điện thoại
 
-        btnChooseFile.setOnClickListener(v -> openFilePicker());
-        btnSend.setOnClickListener(v -> startSendingMessages());
-        btnSaveLog.setOnClickListener(v -> saveLogToFile());
+        // Gán sự kiện click cho các nút
+        btnChooseFile.setOnClickListener(v -> openFilePicker());  // Mở trình chọn file khi nhấn nút "Chọn File"
+        btnSend.setOnClickListener(v -> startSendingMessages()); // Bắt đầu gửi tin nhắn khi nhấn nút "Gửi"
+        btnSaveLog.setOnClickListener(v -> saveLogToFile());   // Lưu log ra file khi nhấn nút "Lưu Log"
 
+        // Kiểm tra và yêu cầu các quyền cần thiết (SEND_SMS, WRITE_EXTERNAL_STORAGE)
         checkAndRequestPermissions();
     }
 
     // Các phương thức khác giữ nguyên (checkAndRequestPermissions, onRequestPermissionsResult, openFilePicker, onActivityResult, readPhoneNumbersFromFile)
 
     private void checkAndRequestPermissions() {
+        // Kiểm tra xem ứng dụng đã có quyền SEND_SMS chưa
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+            // Nếu chưa có quyền, yêu cầu quyền từ người dùng
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.SEND_SMS}, REQUEST_CODE_PERMISSION_SEND_SMS);
         }
+        // Kiểm tra xem ứng dụng đã có quyền WRITE_EXTERNAL_STORAGE chưa
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
         {
+            // Nếu chưa có quyền, yêu cầu quyền từ người dùng
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_CODE_WRITE_EXTERNAL_STORAGE);
         }
     }
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        // Xử lý kết quả yêu cầu cấp quyền SEND_SMS
         if (requestCode == REQUEST_CODE_PERMISSION_SEND_SMS) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // SMS permission granted
+                // Quyền SEND_SMS đã được cấp
             } else {
+                // Quyền SEND_SMS bị từ chối
                 Toast.makeText(this, "SMS permission denied!", Toast.LENGTH_SHORT).show();
-                // Handle permission denial (e.g., disable send button)
+                // Xử lý trường hợp không có quyền (ví dụ: vô hiệu hóa nút gửi tin nhắn)
             }
         }
 
+        // Xử lý kết quả yêu cầu cấp quyền WRITE_EXTERNAL_STORAGE
         if (requestCode == REQUEST_CODE_WRITE_EXTERNAL_STORAGE)
         {
-            if (grantResults.length > 0 && grantResults[0] != PackageManager.PERMISSION_GRANTED)
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED)
             {
+                // Quyền WRITE_EXTERNAL_STORAGE đã được cấp
+            } else {
+                // Quyền WRITE_EXTERNAL_STORAGE bị từ chối
                 Toast.makeText(this,"Storage permission is required to save logs.", Toast.LENGTH_LONG).show();
-                btnSaveLog.setEnabled(false);
+                btnSaveLog.setEnabled(false); // Vô hiệu hóa nút lưu log
             }
         }
     }
 
     private void openFilePicker() {
+        // Tạo Intent để mở trình chọn file
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("text/plain"); // Or use "*/*" for all file types
@@ -143,105 +161,117 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        // Xử lý kết quả trả về từ trình chọn file
         if (requestCode == REQUEST_CODE_PICK_FILE && resultCode == RESULT_OK) {
             if (data != null) {
-                Uri uri = data.getData();
-                tvFilePath.setText(uri.getPath()); // Display the path (for user info)
-                readPhoneNumbersFromFile(uri);
+                Uri uri = data.getData(); // Lấy URI của file được chọn
+                tvFilePath.setText(uri.getPath()); // Hiển thị đường dẫn file lên TextView
+                readPhoneNumbersFromFile(uri); // Đọc nội dung file
             }
         }
     }
     private void readPhoneNumbersFromFile(Uri uri) {
 
-        currentTime = sdf.format(new Date());
+        currentTime = sdf.format(new Date()); // Cập nhật thời gian hiện tại
 
-        phoneNumbers.clear(); // Clear previous numbers
-        processedCount = 0; //Reset
-        currentPhoneNumberIndex = 0;
-        tvProcessedCount.setText("[" + currentTime + "] Số tin đã xử lý: 0/" + totalLines);
-        logBuilder = new StringBuilder();
-        tvLog.setText("");
+        phoneNumbers.clear(); // Xóa danh sách số điện thoại cũ (nếu có)
+        processedCount = 0; // Đặt lại số tin nhắn đã xử lý về 0
+        currentPhoneNumberIndex = 0; // Đặt lại chỉ số số điện thoại hiện tại về 0
+        tvProcessedCount.setText("[" + currentTime + "] Số tin đã xử lý: 0/" + totalLines); // Hiển thị số tin đã xử lý/tổng số tin
+        logBuilder = new StringBuilder(); // Tạo mới StringBuilder để lưu log
+        tvLog.setText(""); // Xóa nội dung log cũ (nếu có)
 
         try {
-            InputStream inputStream = getContentResolver().openInputStream(uri);
-            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+            InputStream inputStream = getContentResolver().openInputStream(uri); // Mở luồng đọc từ URI của file
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream)); // Tạo BufferedReader để đọc file
             String line;
+            // Đọc từng dòng của file
             while ((line = reader.readLine()) != null) {
                 totalLines++; // Tăng số dòng
 
-                // Simple validation and cleaning
+                // Loại bỏ khoảng trắng và các ký tự không phải số khỏi dòng
                 String cleanedNumber = line.trim().replaceAll("[^0-9]", "");
+                // Nếu chuỗi sau khi làm sạch không rỗng, thêm nó vào danh sách số điện thoại
                 if (!cleanedNumber.isEmpty()) {
                     phoneNumbers.add(cleanedNumber);
                 }
             }
-            reader.close();
-            inputStream.close();
-        } catch (IOException e) {
+            reader.close(); // Đóng BufferedReader
+            inputStream.close(); // Đóng luồng đọc file
+        } catch (IOException e) { // Xử lý ngoại lệ nếu có lỗi xảy ra khi đọc file
             e.printStackTrace();
             Toast.makeText(this, "Lỗi đọc file!", Toast.LENGTH_SHORT).show();
 
-            currentTime = sdf.format(new Date());
-            logBuilder.append("[" + currentTime + "] Lỗi đọc file: " + e.getMessage() + "\n");
+            currentTime = sdf.format(new Date()); // Cập nhật thời gian hiện tại
+            logBuilder.append("[" + currentTime + "] Lỗi đọc file: " + e.getMessage() + "\n"); // Thêm thông tin lỗi vào log
 
-            tvLog.setText(logBuilder.toString());
+            tvLog.setText(logBuilder.toString()); // Hiển thị log lên TextView
 
         }
     }
 
 
     private void startSendingMessages() {
+        // Kiểm tra xem danh sách số điện thoại có rỗng không
         if (phoneNumbers.isEmpty()) {
             Toast.makeText(this, "Không có số điện thoại!", Toast.LENGTH_SHORT).show();
-            return;
+            return; // Thoát khỏi hàm nếu không có số điện thoại
         }
 
+        // Lấy thời gian delay từ EditText (nếu có)
         String delayStr = edtDelay.getText().toString();
         if (!delayStr.isEmpty()) {
             try {
-                delayMillis = Long.parseLong(delayStr) * 1000;
+                delayMillis = Long.parseLong(delayStr) * 1000; // Chuyển đổi thời gian delay từ giây sang mili giây
             } catch (NumberFormatException e) {
                 Toast.makeText(this, "Delay không hợp lệ!", Toast.LENGTH_SHORT).show();
-                return;
+                return; // Thoát khỏi hàm nếu thời gian delay không hợp lệ
             }
         }
 
+        // Vô hiệu hóa các nút và EditText trong khi gửi tin nhắn
         btnSend.setEnabled(false);
         btnChooseFile.setEnabled(false);
         edtDelay.setEnabled(false);
         edtMsg.setEnabled(false);
+        btnSaveLog.setEnabled(false);
 
-        currentPhoneNumberIndex = 0;
-        sendMessageWithDelay();
+        currentPhoneNumberIndex = 0; // Đặt lại chỉ số số điện thoại hiện tại về 0
+        sendMessageWithDelay(); // Bắt đầu gửi tin nhắn
     }
 
     private void sendMessageWithDelay() {
+        // Nếu vẫn còn số điện thoại để gửi
         if (currentPhoneNumberIndex < phoneNumbers.size()) {
-            String phoneNumber = phoneNumbers.get(currentPhoneNumberIndex);
+            String phoneNumber = phoneNumbers.get(currentPhoneNumberIndex); // Lấy số điện thoại hiện tại
 
-            currentTime = sdf.format(new Date());
+            currentTime = sdf.format(new Date()); // Cập nhật thời gian hiện tại
 
-            if (isValidPhoneNumber(phoneNumber)) { // Kiểm tra số điện thoại
-                sendSMS(phoneNumber);
-                logBuilder.append("[" + currentTime + "] Gửi thành công: " + phoneNumber + "\n");
-                tvLog.setText(logBuilder.toString());
-            } else {
-                logBuilder.append("[" + currentTime + "] Lỗi: Số điện thoại không hợp lệ: " + phoneNumber + "\n");
-                tvLog.setText(logBuilder.toString()); // Hiển thị lỗi
+            if (isValidPhoneNumber(phoneNumber)) { // Kiểm tra tính hợp lệ của số điện thoại
+                sendSMS(phoneNumber); // Gửi tin nhắn
+                logBuilder.append("[" + currentTime + "] Gửi thành công: " + phoneNumber + "\n"); //Thêm log gửi thành công
+                tvLog.setText(logBuilder.toString()); // Cập nhật log trên UI
+            } else { //Nếu số điện thoại không hợp lệ
+                logBuilder.append("[" + currentTime + "] Lỗi: Số điện thoại không hợp lệ: " + phoneNumber + "\n"); //Thêm log số điện thoại không hợp lệ
+                tvLog.setText(logBuilder.toString()); // Hiển thị lỗi trên UI
             }
 
-            processedCount++;
-            tvProcessedCount.setText("Số tin đã xử lý: " + processedCount + "/" + totalLines);
+            processedCount++; // Tăng số lượng tin nhắn đã xử lý
+            tvProcessedCount.setText("Số tin đã xử lý: " + processedCount + "/" + totalLines); // Cập nhật số lượng tin nhắn đã xử lý trên UI
 
-            currentPhoneNumberIndex++;
-            handler.postDelayed(this::sendMessageWithDelay, delayMillis); // Lặp lại sau delay
+            currentPhoneNumberIndex++; // Chuyển sang số điện thoại tiếp theo
+            handler.postDelayed(this::sendMessageWithDelay, delayMillis); // Lặp lại hàm này sau một khoảng thời gian delay
         } else {
             // Đã gửi hết tin nhắn
+
+            // Kích hoạt lại các nút và EditText
             btnSend.setEnabled(true);
             btnChooseFile.setEnabled(true);
             edtDelay.setEnabled(true);
             edtMsg.setEnabled(true);
-            Toast.makeText(this, "Đã gửi xong!", Toast.LENGTH_SHORT).show();
+            btnSaveLog.setEnabled(true);
+
+            Toast.makeText(this, "Đã gửi xong!", Toast.LENGTH_SHORT).show(); // Thông báo cho người dùng
 
             // Hủy đăng ký receiver KHI ĐÃ XỬ LÝ XONG
             if (sentReceiver != null) {
@@ -289,17 +319,17 @@ public class MainActivity extends AppCompatActivity {
                             break;
                     }
 
-                    tvLog.setText(logBuilder.toString());
+                    tvLog.setText(logBuilder.toString()); // Cập nhật UI
                 }
             };
-            registerReceiver(sentReceiver, new IntentFilter(SENT));
+            registerReceiver(sentReceiver, new IntentFilter(SENT)); // Đăng kí
         }
         // PendingIntent deliveredPI = PendingIntent.getBroadcast(this, 0, new Intent(DELIVERED), PendingIntent.FLAG_IMMUTABLE); // Không cần thiết.
 
         // 3. Gửi tin nhắn, truyền PendingIntent
         try {
-            String msgStr = edtMsg.getText().toString();
-            SmsManager smsManager = SmsManager.getDefault();
+            String msgStr = edtMsg.getText().toString();       // Lấy nội dung tin nhắn
+            SmsManager smsManager = SmsManager.getDefault();  // Lấy đối tượng SmsManager
 
             // Kiểm tra tin nhắn có vượt quá giới hạn ký tự không
             ArrayList<String> parts = smsManager.divideMessage(msgStr);
@@ -308,16 +338,16 @@ public class MainActivity extends AppCompatActivity {
                 ArrayList<PendingIntent> sentIntents = new  ArrayList<PendingIntent>();
                 for(int i = 0; i< parts.size(); i++)
                 {
-                    sentIntents.add(sentPI);
+                    sentIntents.add(sentPI); // Thêm pending intent cho mỗi phần
                 }
-                smsManager.sendMultipartTextMessage(phoneNumber, null, parts, sentIntents, null);
+                smsManager.sendMultipartTextMessage(phoneNumber, null, parts, sentIntents, null); // Gửi tin nhắn
             } else {
                 // Tin nhắn ngắn, gửi bình thường
-                smsManager.sendTextMessage(phoneNumber, null, msgStr, sentPI, null);
+                smsManager.sendTextMessage(phoneNumber, null, msgStr, sentPI, null); // Gửi tin nhắn
             }
 
         } catch (Exception e) { // Bắt Exception
-            currentTime = sdf.format(new Date());
+            currentTime = sdf.format(new Date()); // Cập nhật thời gian
 
             logBuilder.append("[" + currentTime + "] Lỗi gửi tới " + phoneNumber + ": " + e.getMessage() + "\n");
             e.printStackTrace();
@@ -333,16 +363,16 @@ public class MainActivity extends AppCompatActivity {
         }
 
         try {
-            // Create a file in the Downloads directory
+            // Tạo file trong thư mục Downloads
             File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
             File logFile = new File(downloadsDir, "sms_log.txt");
 
 
-            FileOutputStream fileOutputStream = new FileOutputStream(logFile);
-            OutputStreamWriter outputStreamWriter = new OutputStreamWriter(fileOutputStream);
-            outputStreamWriter.write(logBuilder.toString());
-            outputStreamWriter.close();
-            fileOutputStream.close();
+            FileOutputStream fileOutputStream = new FileOutputStream(logFile); // Luồng ghi file
+            OutputStreamWriter outputStreamWriter = new OutputStreamWriter(fileOutputStream); // Writer để ghi vào luồng
+            outputStreamWriter.write(logBuilder.toString()); // Ghi nội dung log vào file
+            outputStreamWriter.close(); // Đóng writer
+            fileOutputStream.close(); // Đóng luồng
 
             Toast.makeText(this, "Đã lưu log tại: " + logFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
 
@@ -350,7 +380,6 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
             Toast.makeText(this, "Lỗi lưu file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             Log.e("SMS_APP", "Error saving log file: " + e.getMessage());
-
         }
     }
 
@@ -364,8 +393,8 @@ public class MainActivity extends AppCompatActivity {
 
 
         // Hoặc, sử dụng regex (tùy chỉnh chặt chẽ hơn):
-         String regex = "^[+]?[0-9]{10,13}$"; // Ví dụ: số điện thoại từ 10-13 chữ số, có thể có dấu +
-         return phoneNumber.matches(regex);
+        String regex = "^[+]?[0-9]{10,13}$"; // Ví dụ: số điện thoại từ 10-13 chữ số, có thể có dấu +
+        return phoneNumber.matches(regex);
     }
 
     @Override
