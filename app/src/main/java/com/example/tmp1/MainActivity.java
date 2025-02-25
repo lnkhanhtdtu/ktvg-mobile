@@ -59,8 +59,11 @@ public class MainActivity extends AppCompatActivity {
     private Button btnSaveLog;
 
     private List<String> phoneNumbers;
+    // Xóa phoneNumbersKhongHopLe
+    // private List<String> phoneNumbersKhongHopLe;
+
     private int processedCount = 0;
-    private int totalLines = 0; // Tổng số dòng, không phải tổng số SĐT hợp lệ
+    private int totalLines = 0; // Loại bỏ totalLines
     private StringBuilder logBuilder;
     private Handler handler;
     private int currentPhoneNumberIndex = 0;
@@ -69,11 +72,10 @@ public class MainActivity extends AppCompatActivity {
     private BroadcastReceiver sentReceiver;
 
     private SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
-    //endregion
 
-//    private int processedCount = 0;
-    private int sentSuccessfullyCount = 0; // Thêm biến đếm số tin nhắn gửi thành công
-    private int totalValidNumbers = 0;  //Biến đếm tổng các số điện thoại hợp lệ
+    private int sentSuccessfullyCount = 0;
+    private int totalValidNumbers = 0;
+    private int invalidNumberCount = 0; // Số lượng số không hợp lệ
 
     //region Vòng đời Activity
     @Override
@@ -93,6 +95,7 @@ public class MainActivity extends AppCompatActivity {
         logBuilder = new StringBuilder();
         handler = new Handler(Looper.getMainLooper()); // Sử dụng Main Looper
         phoneNumbers = new ArrayList<>();
+//        phoneNumbersKhongHopLe = new ArrayList<>(); // Xóa
 
         btnChooseFile.setOnClickListener(v -> openFilePicker());
         btnSend.setOnClickListener(v -> startSendingMessages());
@@ -151,12 +154,14 @@ public class MainActivity extends AppCompatActivity {
 
     private void readPhoneNumbersFromFile(Uri uri) {
         phoneNumbers.clear();
+        // phoneNumbersKhongHopLe.clear(); // Xóa
+
         processedCount = 0;
-        sentSuccessfullyCount = 0; // Reset
+        sentSuccessfullyCount = 0;
         currentPhoneNumberIndex = 0;
-        totalLines = 0; // Reset
-        totalValidNumbers = 0; // Reset
-        logBuilder = new StringBuilder(); // Reset log
+        totalValidNumbers = 0;
+        invalidNumberCount = 0; // Reset
+        logBuilder = new StringBuilder();
         tvLog.setText("");
 
         try (InputStream inputStream = getContentResolver().openInputStream(uri);
@@ -164,24 +169,33 @@ public class MainActivity extends AppCompatActivity {
 
             String line;
             while ((line = reader.readLine()) != null) {
-                totalLines++; // Đếm tổng số dòng
+                // totalLines++; // Không dùng totalLines nữa
                 String cleanedNumber = line.trim().replaceAll("[^0-9]", "");
-                if (!cleanedNumber.isEmpty() && isValidPhoneNumber(cleanedNumber)) {
-                    phoneNumbers.add(cleanedNumber);
-                    totalValidNumbers++; // Đếm tổng số SĐT hợp lệ.
+                if (!cleanedNumber.isEmpty()) { // Chỉ xử lý dòng không rỗng
+                    if (isValidPhoneNumber(cleanedNumber)) {
+                        phoneNumbers.add(cleanedNumber);
+                        totalValidNumbers++;
+                    } else {
+                        // Xử lý số KHÔNG hợp lệ NGAY TẠI ĐÂY
+                        logError("Số điện thoại không hợp lệ", cleanedNumber);
+                        processedCount++; // Tăng số đã "xử lý" (bỏ qua)
+                        invalidNumberCount++;
+                    }
+                } else {
+                    processedCount++;//dòng rỗng
                 }
             }
-            updateProcessedCountDisplay();
+            updateProcessedCountDisplay(); // Cập nhật UI
 
         } catch (IOException e) {
             e.printStackTrace();
-            logError("Lỗi đọc file: " + e.getMessage(), null); // Log lỗi
+            logError("Lỗi đọc file: " + e.getMessage(), null);
         }
     }
 
     private void startSendingMessages() {
-        if (phoneNumbers.isEmpty()) {
-            Toast.makeText(this, "Không có số điện thoại hợp lệ!", Toast.LENGTH_SHORT).show();
+        if (phoneNumbers.isEmpty() && invalidNumberCount == 0) { // Kiểm tra cả số hợp lệ và không hợp lệ
+            Toast.makeText(this, "Không có số điện thoại!", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -195,15 +209,19 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+// Reset lại trạng thái
+        processedCount = invalidNumberCount; // Số đã xử lý ban đầu là số không hợp lệ đã bỏ qua
+        sentSuccessfullyCount = 0;
+        currentPhoneNumberIndex = 0;
+        updateProcessedCountDisplay();
+
         btnSend.setEnabled(false);
         btnChooseFile.setEnabled(false);
+        btnSaveLog.setEnabled(false);
         edtDelay.setEnabled(false);
         edtMsg.setEnabled(false);
-        btnSaveLog.setEnabled(false);
 
-        currentPhoneNumberIndex = 0;
-        // KHÔNG GỌI sendMessageWithDelay() TRỰC TIẾP
-        handler.post(this::sendMessageWithDelay);  // Post runnable lên handler
+        handler.post(this::sendMessageWithDelay);
     }
 
 
@@ -228,6 +246,7 @@ public class MainActivity extends AppCompatActivity {
             // ... (phần code khi gửi xong) ...
             btnSend.setEnabled(true);
             btnChooseFile.setEnabled(true);
+            btnSaveLog.setEnabled(true);
             edtDelay.setEnabled(true);
             edtMsg.setEnabled(true);
             btnSaveLog.setEnabled(true);
@@ -366,8 +385,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateProcessedCountDisplay() {
         runOnUiThread(() -> {
-            // Hiển thị cả số đã xử lý và số gửi thành công
-            String displayText = String.format(Locale.getDefault(), "Đã xử lý: %d/%d (Thành công: %d)", processedCount, totalValidNumbers, sentSuccessfullyCount);
+            // Hiển thị: Đã xử lý / (Tổng hợp lệ + Đã bỏ qua) (Thành công)
+            String displayText = String.format(Locale.getDefault(), "Đã xử lý: %d/%d (Thành công: %d)", processedCount, totalValidNumbers + invalidNumberCount, sentSuccessfullyCount);
             tvProcessedCount.setText(displayText);
         });
     }
